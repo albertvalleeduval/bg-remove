@@ -218,7 +218,6 @@ export function App(): React.ReactElement {
         <div className="my-6">
           <DropZone
             onFiles={handleFiles}
-            compact={jobs.length > 0}
             disabled={initState.status === 'error'}
           />
         </div>
