@@ -51,7 +51,7 @@ export function DropZone({
     <div
       {...getRootProps()}
       className={[
-        'group relative grid w-full cursor-pointer place-items-center rounded-2xl border-2 border-dashed px-8 py-20 text-center transition-all duration-200',
+        'group relative mx-auto grid w-full max-w-4xl cursor-pointer place-items-center rounded-2xl border-2 border-dashed px-8 py-28 text-center transition-all duration-200',
         isDragActive
           ? 'border-[var(--color-accent)] bg-[var(--color-bg-elev)] scale-[1.005]'
           : 'border-[var(--color-border)] hover:border-[var(--color-fg-muted)] hover:bg-[var(--color-bg-elev)]',
