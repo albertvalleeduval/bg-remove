@@ -30,7 +30,6 @@ const newJobId = (): string => `job-${++jobCounter}`;
 export function App(): React.ReactElement {
   const [jobs, setJobs] = useState<ImageJob[]>([]);
   const [initState, setInitState] = useState<InitState>(bgRemover.getState());
-  const [format, setFormat] = useState<OutputFormat>('png');
   const jobsRef = useRef(jobs);
   jobsRef.current = jobs;
 
@@ -69,7 +68,7 @@ export function App(): React.ReactElement {
       const newJobs: ImageJob[] = files.map((file) => ({
         id: newJobId(),
         file,
-        format,
+        format: 'png',
         status: 'queued',
         inputUrl: URL.createObjectURL(file),
       }));
@@ -114,7 +113,7 @@ export function App(): React.ReactElement {
           });
       }
     },
-    [format, patchJob],
+    [patchJob],
   );
 
   const removeJob = useCallback((id: string) => {
@@ -136,10 +135,6 @@ export function App(): React.ReactElement {
 
   const doneJobs = useMemo(
     () => jobs.filter((j) => j.status === 'done' && j.outputBlob),
-    [jobs],
-  );
-  const anyProcessing = useMemo(
-    () => jobs.some((j) => j.status === 'processing' || j.status === 'queued'),
     [jobs],
   );
 
@@ -176,13 +171,8 @@ export function App(): React.ReactElement {
         )}
 
         {/* Toolbar */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <FormatToggle
-            value={format}
-            onChange={setFormat}
-            disabled={anyProcessing}
-          />
-          <div className="flex items-center gap-2">
+        {jobs.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
             {doneJobs.length > 1 && (
               <button
                 type="button"
@@ -193,18 +183,16 @@ export function App(): React.ReactElement {
                 Download all ({doneJobs.length}) as .zip
               </button>
             )}
-            {jobs.length > 0 && (
-              <button
-                type="button"
-                onClick={clearAll}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elev)] px-3 text-xs font-medium text-[var(--color-fg)] transition-colors hover:bg-[var(--color-border)]"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Clear
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={clearAll}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elev)] px-3 text-xs font-medium text-[var(--color-fg)] transition-colors hover:bg-[var(--color-border)]"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Clear
+            </button>
           </div>
-        </div>
+        )}
 
         {/* Model load status — hidden during the silent preload on first
             paint, shown only if the user drops an image before it finishes
@@ -253,45 +241,6 @@ export function App(): React.ReactElement {
           </a>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function FormatToggle({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: OutputFormat;
-  onChange: (f: OutputFormat) => void;
-  disabled?: boolean;
-}): React.ReactElement {
-  return (
-    <div
-      className={[
-        'inline-flex h-8 items-center gap-0.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elev)] p-0.5',
-        disabled ? 'pointer-events-none opacity-60' : '',
-      ].join(' ')}
-      role="radiogroup"
-      aria-label="Output format"
-    >
-      {(['png', 'webp'] as const).map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          role="radio"
-          aria-checked={value === opt}
-          onClick={() => onChange(opt)}
-          className={[
-            'h-7 rounded px-2.5 font-mono text-[11px] uppercase tracking-wider transition-colors',
-            value === opt
-              ? 'bg-[var(--color-accent)] text-[var(--color-accent-fg)]'
-              : 'text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]',
-          ].join(' ')}
-        >
-          {opt}
-        </button>
-      ))}
     </div>
   );
 }
