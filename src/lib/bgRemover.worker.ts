@@ -81,9 +81,12 @@ async function loadModel(): Promise<{
   // RMBG-1.4 is a custom architecture; transformers.js loads it as a generic
   // model when we declare model_type: 'custom'. The library's typed options
   // object doesn't expose this knob directly, so we widen via `unknown`.
+  // fp16 cuts the download from ~176 MB to ~88 MB with no visible quality
+  // difference on a segmentation mask that gets quantized to 8-bit alpha anyway.
   const modelOptions = {
     config: { model_type: 'custom' },
     device,
+    dtype: 'fp16',
     progress_callback: progressCallback,
   } as unknown as Parameters<typeof AutoModel.from_pretrained>[1];
   const model = await AutoModel.from_pretrained(MODEL_ID, modelOptions);

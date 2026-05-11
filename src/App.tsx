@@ -38,6 +38,12 @@ export function App(): React.ReactElement {
     return bgRemover.onInit(setInitState);
   }, []);
 
+  // Warm the model on mount so the download finishes while the user is still
+  // picking their image. By the time they drop, inference is usually instant.
+  useEffect(() => {
+    bgRemover.init();
+  }, []);
+
   // Free object URLs when jobs unmount.
   useEffect(() => {
     return () => {
@@ -200,8 +206,13 @@ export function App(): React.ReactElement {
           </div>
         </div>
 
-        {/* Model load status */}
-        <ModelStatus state={initState} />
+        {/* Model load status — hidden during the silent preload on first
+            paint, shown only if the user drops an image before it finishes
+            (or if it errored out). */}
+        {(initState.status === 'error' ||
+          (jobs.length > 0 && initState.status === 'loading')) && (
+          <ModelStatus state={initState} />
+        )}
 
         {/* Drop zone */}
         <div className="my-6">
