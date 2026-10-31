@@ -128,6 +128,15 @@ describe('pipeline', () => {
     t.diagnostic(`P3 stored ${[...stored.subarray(0, 3)]} -> decoded sRGB ${rgb}`);
   });
 
+  test('AVIF input is accepted (sharp reports it as heif/av1)', async () => {
+    const avif = await sharp({ create: { width: 12, height: 10, channels: 3, background: '#336699' } })
+      .avif()
+      .toBuffer();
+    const decoded = await decode(avif);
+    assert.equal(decoded.width, 12);
+    assert.equal(decoded.height, 10);
+  });
+
   test('webp output keeps alpha and size', async () => {
     const result = await run(inputs.dog, { format: 'webp' });
     assert.match(result.output_path, /dog-nobg\.webp$/);

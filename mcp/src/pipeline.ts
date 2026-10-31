@@ -23,7 +23,7 @@ import {
   type Processor,
   type Tensor,
 } from '@huggingface/transformers';
-import sharp from 'sharp';
+import sharp, { type Metadata } from 'sharp';
 
 export const MODEL_ID = 'briaai/RMBG-1.4';
 const MODEL_SIZE = 1024;
@@ -141,7 +141,10 @@ export function getModel(): Promise<LoadedModel> {
   return modelPromise;
 }
 
-const SUPPORTED_FORMATS = new Set(['png', 'jpeg', 'webp', 'avif', 'heif', 'tiff', 'gif']);
+// sharp reports AVIF as the "heif" container with AV1 compression. HEIC
+// (HEVC compression) is not decodable by sharp's prebuilt binaries, so only
+// the AV1 flavour is accepted.
+const SUPPORTED_FORMATS = new Set(['png', 'jpeg', 'webp', 'tiff', 'gif']);
 
 export interface DecodedImage {
   rgba: Buffer;
@@ -150,15 +153,17 @@ export interface DecodedImage {
 }
 
 export async function decode(input: Buffer): Promise<DecodedImage> {
-  let format: string | undefined;
+  let meta: Metadata;
   try {
-    format = (await sharp(input).metadata()).format;
+    meta = await sharp(input).metadata();
   } catch {
     throw new Error('Not a readable image (unsupported or corrupt file)');
   }
-  if (!format || !SUPPORTED_FORMATS.has(format)) {
+  const isAvif = meta.format === 'heif' && meta.compression === 'av1';
+  if (!isAvif && !(meta.format && SUPPORTED_FORMATS.has(meta.format))) {
+    const label = meta.format === 'heif' ? 'heic' : (meta.format ?? 'unknown');
     throw new Error(
-      `Unsupported input format "${format ?? 'unknown'}" (expected png, jpg, webp, avif, tiff or gif)`,
+      `Unsupported input format "${label}" (expected png, jpg, webp, avif, tiff or gif)`,
     );
   }
   // rotate() with no argument applies the EXIF orientation, like
