@@ -3,13 +3,20 @@
 // dependencies to stderr before anything else is loaded.
 import './stdio-guard.js';
 
+import { readFileSync } from 'node:fs';
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
 import { processBatch, type FileResult } from './files.js';
 
-const server = new McpServer({ name: 'bg-remove', version: '0.1.0' });
+// dist/index.js -> ../package.json
+const { version } = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+) as { version: string };
+
+const server = new McpServer({ name: 'bg-remove', version });
 
 // Tool calls are processed one at a time, even if a client sends several in
 // parallel: inference is CPU-heavy and memory scales with image size.

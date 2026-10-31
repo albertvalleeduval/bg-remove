@@ -2,6 +2,7 @@
 // then initialize, list tools and call remove_background.
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { after, before, test } from 'node:test';
 
@@ -11,6 +12,9 @@ import sharp from 'sharp';
 
 import { FIXTURES, makeTempDir, removeDir } from './helpers.mjs';
 
+const PKG = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+);
 const SERVER = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'index.js');
 
 let tmp;
@@ -39,6 +43,7 @@ after(async () => {
 test('initialize reports the server', () => {
   const info = client.getServerVersion();
   assert.equal(info?.name, 'bg-remove');
+  assert.equal(info?.version, PKG.version);
   assert.ok(client.getServerCapabilities()?.tools);
 });
 
