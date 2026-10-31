@@ -1,0 +1,2 @@
+# The MCP server is a separate Node package, not part of the static site.
+mcp/
