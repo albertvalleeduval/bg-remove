@@ -32,8 +32,8 @@ export type FileResult =
 
 /**
  * Normalize a user-supplied absolute path. Accepts native paths on every
- * platform, plus on Windows the MSYS / Git Bash form (/c/path/...) and
- * forward slashes. Relative paths are rejected: the server's cwd is not
+ * platform, plus on Windows the MSYS / Git Bash form (/c/path/...), UNC
+ * shares (\\server\share\... or //server/share/...) and forward slashes. Relative paths are rejected: the server's cwd is not
  * something the caller controls.
  */
 export function normalizeAbsolutePath(raw: string, label: string): string {
@@ -48,9 +48,15 @@ export function normalizeAbsolutePath(raw: string, label: string): string {
   if (process.platform === 'win32') {
     const msys = /^\/([a-zA-Z])(\/|$)(.*)$/.exec(p);
     if (msys) p = `${msys[1]!.toUpperCase()}:\\${msys[3] ?? ''}`;
-    // A bare "/foo" on Windows is drive-relative, not absolute.
-    if (!/^[a-zA-Z]:[\\/]/.test(p) && !p.startsWith('\\\\')) {
-      throw new Error(`${label} must be an absolute path (got "${raw}")`);
+    const isDrive = /^[a-zA-Z]:[\\/]/.test(p);
+    const isUnc = /^[\\/]{2}[^\\/]+[\\/][^\\/]+/.test(p);
+    if (!isDrive && !isUnc) {
+      // A bare "/tmp/x" is relative to the current drive on Windows.
+      throw new Error(
+        /^[\\/]/.test(p)
+          ? `${label} "${raw}" has no drive letter; on Windows use a full path such as C:/dir/file.png or /c/dir/file.png`
+          : `${label} must be an absolute path (got "${raw}")`,
+      );
     }
   } else if (!path.isAbsolute(p)) {
     throw new Error(`${label} must be an absolute path (got "${raw}")`);

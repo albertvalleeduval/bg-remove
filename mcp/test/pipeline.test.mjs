@@ -242,7 +242,11 @@ describe('file handling', () => {
       assert.equal(normalizeAbsolutePath('C:/a/b.png', 'p'), 'C:\\a\\b.png');
       assert.equal(normalizeAbsolutePath('/c/a/b.png', 'p'), 'C:\\a\\b.png');
       assert.equal(normalizeAbsolutePath('"D:\\x y\\z.jpg"', 'p'), 'D:\\x y\\z.jpg');
-      assert.throws(() => normalizeAbsolutePath('\\a\\b.png', 'p'), /absolute/);
+      assert.equal(normalizeAbsolutePath('//server/share/a.png', 'p'), '\\\\server\\share\\a.png');
+      assert.equal(normalizeAbsolutePath('\\\\server\\share\\a.png', 'p'), '\\\\server\\share\\a.png');
+      assert.throws(() => normalizeAbsolutePath('\\a\\b.png', 'p'), /no drive letter.*C:\/dir/);
+      assert.throws(() => normalizeAbsolutePath('/tmp/b.png', 'p'), /no drive letter.*\/c\/dir/);
+      assert.throws(() => normalizeAbsolutePath('//server', 'p'), /no drive letter/);
     } else {
       assert.equal(normalizeAbsolutePath('/a/./b.png', 'p'), '/a/b.png');
     }
