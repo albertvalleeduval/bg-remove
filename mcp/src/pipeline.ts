@@ -262,8 +262,8 @@ function tensorToMask(maskTensor: Tensor): { data: Buffer; width: number; height
 
 /**
  * Upscale the mask to the source size. The browser draws it with
- * imageSmoothingQuality = 'high', which Chromium implements as a Mitchell
- * cubic filter; sharp's 'mitchell' kernel is the same filter.
+ * imageSmoothingQuality = 'high', whose filter is left to each browser;
+ * sharp's 'mitchell' kernel is a comparable cubic filter.
  */
 async function resizeMask(
   mask: { data: Buffer; width: number; height: number },

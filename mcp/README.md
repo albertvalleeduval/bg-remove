@@ -6,7 +6,7 @@ Everything runs on your machine, on the CPU. Images are never uploaded anywhere 
 
 ## Requirements
 
-- Node.js 20 or later
+- Node.js 20.9 or later (sharp's minimum)
 - About 90 MB of disk for the model (fp16 ONNX weights), downloaded on first use
 
 ## Install and build
@@ -17,6 +17,8 @@ npm install
 npm run build      # compiles to mcp/dist/
 npm test           # optional: runs the pipeline on sample images + an end-to-end MCP session
 ```
+
+The tests run the real model. On a fresh clone, or after `npm ci` wipes `node_modules`, the first `npm test` downloads the 88 MB weights before it starts, unless `BG_REMOVE_CACHE_DIR` points to a cache that already holds them (the tests honour it like the server does).
 
 This folder is a separate package with its own `package.json` and lockfile. It does not affect the web app's dependencies or build, and it is excluded from Vercel deployments (`.vercelignore`).
 
@@ -62,9 +64,11 @@ On Windows, write the path with forward slashes or escaped backslashes (`C:\\pat
 | `overwrite` | boolean | `false` | Replace existing output files. Without it, an existing output is reported as an error for that file. |
 | `trim` | boolean | `false` | Crop to the visible subject (alpha ≥ 5%) plus a margin of 1% of the subject's longer side (at least 2 px), clamped to the image. Handy for logos and assets. |
 
-Paths must be absolute. Native Windows (`C:\…`, `C:/…`) and POSIX paths are accepted, as well as the Git Bash form `/c/…` on Windows.
+Paths must be absolute. Native Windows (`C:\…`, `C:/…`), UNC (`\\server\share\…`, `//server/share/…`) and POSIX paths are accepted, as well as the Git Bash form `/c/…` on Windows. A Windows path without a drive letter (`/tmp/…`) is rejected with a hint.
 
-Inputs: PNG, JPEG, WebP, AVIF, TIFF and GIF (first frame). EXIF orientation is applied, embedded colour profiles are converted to sRGB, and outputs carry no metadata.
+The server writes wherever the client asks: any absolute output path or directory the Node process can write to is accepted, and the only check is that the file name ends in `.png` or `.webp`. It never writes over its input, and never over an existing file unless `overwrite` is set.
+
+Inputs: PNG, JPEG, WebP, AVIF, TIFF and GIF (first frame). HEIC is not supported (sharp's prebuilt binaries cannot decode it). EXIF orientation is applied, embedded colour profiles are converted to sRGB, and outputs carry no metadata.
 
 Files are processed one after another (tool calls are queued too). A file that fails (not found, not an image, output already exists, …) is reported with its error and the rest of the batch continues. The call is only flagged as an error when every file failed.
 
@@ -103,15 +107,15 @@ Download progress and other logs go to stderr only; stdout is reserved for the M
 | Decode | `createImageBitmap` (EXIF orientation, sRGB) | sharp `.rotate()`, sRGB, 8-bit RGBA |
 | Preprocessing | processor config: resize 1024×1024 (bilinear), rescale 1/255, mean 0.5, std 1 | identical config object |
 | Mask | `output` tensor, clamped to [0, 1], rounded to 8-bit | identical |
-| Upscale | canvas `imageSmoothingQuality = 'high'` | sharp `mitchell` kernel (the cubic filter Chromium uses for high-quality upscaling) |
+| Upscale | canvas `imageSmoothingQuality = 'high'` | sharp `mitchell` kernel, a cubic filter comparable to what browsers use for high-quality smoothing |
 | Composite | `destination-in`: alpha = source alpha × mask | same arithmetic on raw pixels |
 | Encode | PNG, or WebP quality 0.95 | PNG, or WebP quality 95 |
 
-Expected small differences: CPU and GPU kernels round differently, the 1024×1024 resize is done by sharp instead of a canvas, and browsers other than Chromium use their own smoothing filter. A canvas also stores premultiplied colour, which slightly alters the RGB of semi-transparent pixels in the browser; the MCP server keeps the original colours exactly. Masks are visually identical. `trim` and the AVIF/TIFF/GIF inputs are additions of the MCP server.
+Expected small differences: CPU and GPU kernels round differently, the 1024×1024 resize is done by sharp instead of a canvas, and each browser picks its own filter for `imageSmoothingQuality = 'high'`. A canvas also stores premultiplied colour, which slightly alters the RGB of semi-transparent pixels in the browser; the MCP server keeps the original colours exactly. Masks are visually identical. `trim` and the AVIF/TIFF/GIF inputs are additions of the MCP server.
 
 ## Model license
 
-RMBG-1.4 is published by BRIA AI under the [bria-rmbg-1.4 license](https://bria.ai/bria-huggingface-model-license-agreement/): it is available for non-commercial use, and commercial use requires an agreement with BRIA. The MIT license of this repository covers the code only, not the model weights. Review the [model card](https://huggingface.co/briaai/RMBG-1.4) before using outputs commercially.
+RMBG-1.4 is published by BRIA AI under the bria-rmbg-1.4 license, as stated on its [model card](https://huggingface.co/briaai/RMBG-1.4): it is available for non-commercial use, and commercial use requires an agreement with BRIA. The MIT license of this repository covers the code only, not the model weights. Review the model card before using outputs commercially.
 
 ## Test images
 

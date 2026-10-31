@@ -88,6 +88,6 @@ MIT — see [`LICENSE`](LICENSE).
 
 ## Credits
 
-- **[BRIA AI](https://bria.ai)** for the open-source [RMBG-1.4](https://huggingface.co/briaai/RMBG-1.4) model. RMBG-1.4 is released under the [bria-rmbg-1.4 license](https://bria.ai/bria-huggingface-model-license-agreement/): available for non-commercial use, while commercial use requires an agreement with BRIA. The MIT license above covers this repository's code, not the model weights.
+- **[BRIA AI](https://bria.ai)** for the open-source [RMBG-1.4](https://huggingface.co/briaai/RMBG-1.4) model. RMBG-1.4 is released under the bria-rmbg-1.4 license, as stated on its [model card](https://huggingface.co/briaai/RMBG-1.4): available for non-commercial use, while commercial use requires an agreement with BRIA. The MIT license above covers this repository's code, not the model weights.
 - **[Hugging Face](https://huggingface.co)** for `@huggingface/transformers` (formerly `@xenova/transformers`).
 - **[Xenova](https://github.com/xenova)** for the ONNX-on-the-web work that makes this possible.
