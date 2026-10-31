@@ -1,6 +1,7 @@
 // End-to-end: spawn the built server over stdio with the official SDK client,
 // then initialize, list tools and call remove_background.
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -100,4 +101,68 @@ test('tools/call with no input is an error result, not a crash', async () => {
 
 test('server logs went to stderr', () => {
   assert.match(stderr, /MCP server ready/);
+});
+
+test('stdout carries nothing but JSON-RPC, model load included', async () => {
+  // Raw session without the SDK client, so nothing filters stdout for us.
+  const child = spawn(process.execPath, [SERVER], { stdio: ['pipe', 'pipe', 'pipe'] });
+  let out = '';
+  let err = '';
+  child.stdout.on('data', (c) => (out += c.toString()));
+  child.stderr.on('data', (c) => (err += c.toString()));
+  const send = (msg) => child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...msg })}\n`);
+  const hasResponse = (id) =>
+    out.split('\n').some((l) => {
+      try {
+        return JSON.parse(l).id === id;
+      } catch {
+        return false;
+      }
+    });
+
+  const lastResponse = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout waiting for tools/call')), 300_000);
+    child.stdout.on('data', () => {
+      if (hasResponse(3)) {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+    child.on('exit', (code) => reject(new Error(`server exited early (${code}): ${err}`)));
+  });
+
+  send({
+    id: 1,
+    method: 'initialize',
+    params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'raw', version: '0' } },
+  });
+  send({ method: 'notifications/initialized' });
+  send({ id: 2, method: 'tools/list' });
+  send({
+    id: 3,
+    method: 'tools/call',
+    params: {
+      name: 'remove_background',
+      arguments: { input_path: path.join(FIXTURES, 'dog.jpg'), output_dir: path.join(tmp, 'raw'), overwrite: true },
+    },
+  });
+  try {
+    await lastResponse;
+  } finally {
+    child.kill();
+  }
+
+  const lines = out.split('\n').filter((l) => l.trim() !== '');
+  assert.ok(lines.length >= 3, `expected 3 responses, got ${lines.length}`);
+  for (const line of lines) {
+    let msg;
+    assert.doesNotThrow(() => (msg = JSON.parse(line)), `non-JSON line on stdout: ${line.slice(0, 200)}`);
+    assert.equal(msg.jsonrpc, '2.0', `not a JSON-RPC message: ${line.slice(0, 200)}`);
+  }
+  assert.deepEqual(
+    lines.map((l) => JSON.parse(l).id).filter((id) => id !== undefined),
+    [1, 2, 3],
+  );
+  // The model's own warnings did happen, on stderr.
+  assert.match(err, /Model ready/);
 });
