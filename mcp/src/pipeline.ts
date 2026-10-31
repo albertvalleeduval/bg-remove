@@ -74,10 +74,21 @@ function makeProgressLogger(): (data: {
   file?: string;
   progress?: number;
 }) => void {
+  // transformers.js reports the same progress events for a cache read as for
+  // a network download and does not say which one it is. A cache read is
+  // over in well under a second, so only start logging for a file once it has
+  // been loading for longer than that.
+  const QUIET_MS = 1000;
+  const startedAt = new Map<string, number>();
   const lastLogged = new Map<string, number>();
   return (data) => {
     const file = data.file ?? 'file';
-    if (data.status === 'progress' && typeof data.progress === 'number') {
+    if (data.status === 'initiate' || data.status === 'download') {
+      if (!startedAt.has(file)) startedAt.set(file, Date.now());
+    } else if (data.status === 'progress' && typeof data.progress === 'number') {
+      const since = startedAt.get(file) ?? Date.now();
+      if (!startedAt.has(file)) startedAt.set(file, since);
+      if (Date.now() - since < QUIET_MS) return;
       // Log every 10% per file to keep stderr readable.
       const step = Math.floor(data.progress / 10) * 10;
       if ((lastLogged.get(file) ?? -1) < step) {
@@ -85,7 +96,7 @@ function makeProgressLogger(): (data: {
         log(`Downloading ${file}: ${step}%`);
       }
     } else if (data.status === 'done') {
-      log(`Loaded ${file}`);
+      if (lastLogged.has(file)) log(`Downloaded ${file}`);
     }
   };
 }
