@@ -9,7 +9,7 @@ import { after, before, describe, test } from 'node:test';
 import sharp from 'sharp';
 
 import { normalizeAbsolutePath, processBatch } from '../dist/files.js';
-import { getModel } from '../dist/pipeline.js';
+import { decode, getModel } from '../dist/pipeline.js';
 import {
   FIXTURES,
   cornerTransparency,
@@ -100,6 +100,32 @@ describe('pipeline', () => {
     // give a mean difference in the tens.
     assert.ok(meanDiff < 4, `mean alpha difference ${meanDiff}`);
     t.diagnostic(`mean alpha difference upright vs EXIF-rotated: ${meanDiff.toFixed(2)}`);
+  });
+
+  test('embedded colour profiles are converted to sRGB, like createImageBitmap', async (t) => {
+    // sRGB #40a040 written as a Display P3 file: libvips/lcms converts it on
+    // encode, so the stored samples are P3 coordinates, roughly (91,158,76).
+    const p3 = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#40a040' } })
+      .withIccProfile('p3')
+      .png()
+      .toBuffer();
+    assert.ok((await sharp(p3).metadata()).icc, 'fixture carries an ICC profile');
+    const stored = await sharp(p3).keepIccProfile().raw().toBuffer();
+    assert.ok(Math.abs(stored[0] - 64) > 15, `stored red ${stored[0]} should be P3, not sRGB`);
+
+    // A colour-managed decode must give the sRGB colour back, not the stored samples.
+    const decoded = await decode(p3);
+    const rgb = [...decoded.rgba.subarray(0, 3)];
+    for (const [i, want] of [64, 160, 64].entries()) {
+      assert.ok(Math.abs(rgb[i] - want) <= 2, `decoded ${rgb} vs sRGB 64,160,64 (stored ${[...stored.subarray(0, 3)]})`);
+    }
+
+    // Untagged input is taken as sRGB and left as is.
+    const plain = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#40a040' } })
+      .png()
+      .toBuffer();
+    assert.deepEqual([...(await decode(plain)).rgba.subarray(0, 4)], [64, 160, 64, 255]);
+    t.diagnostic(`P3 stored ${[...stored.subarray(0, 3)]} -> decoded sRGB ${rgb}`);
   });
 
   test('webp output keeps alpha and size', async () => {

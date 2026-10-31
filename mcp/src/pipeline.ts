@@ -143,13 +143,13 @@ export function getModel(): Promise<LoadedModel> {
 
 const SUPPORTED_FORMATS = new Set(['png', 'jpeg', 'webp', 'avif', 'heif', 'tiff', 'gif']);
 
-interface DecodedImage {
+export interface DecodedImage {
   rgba: Buffer;
   width: number;
   height: number;
 }
 
-async function decode(input: Buffer): Promise<DecodedImage> {
+export async function decode(input: Buffer): Promise<DecodedImage> {
   let format: string | undefined;
   try {
     format = (await sharp(input).metadata()).format;
@@ -162,8 +162,11 @@ async function decode(input: Buffer): Promise<DecodedImage> {
     );
   }
   // rotate() with no argument applies the EXIF orientation, like
-  // createImageBitmap's default imageOrientation: 'from-image'. Output is
-  // 8-bit sRGB RGBA, which is what a 2D canvas holds.
+  // createImageBitmap's default imageOrientation: 'from-image'. An embedded
+  // ICC profile (Display P3, Adobe RGB, ...) is converted to sRGB, like its
+  // default colorSpaceConversion. Output is 8-bit sRGB RGBA, which is what a
+  // 2D canvas holds. Do not add keepIccProfile() or pipelineColourspace()
+  // here: both skip that conversion and return the file's raw values.
   const { data, info } = await sharp(input, { failOn: 'error' })
     .rotate()
     .toColourspace('srgb')
