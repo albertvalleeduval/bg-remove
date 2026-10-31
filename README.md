@@ -62,6 +62,18 @@ vercel deploy --prod # production
 
 No environment variables needed. No backend.
 
+## Use it from Claude (MCP server)
+
+The [`mcp/`](mcp/) folder contains a local MCP server that exposes the same pipeline as a `remove_background` tool working on files, for Claude Code, Claude Desktop or any MCP client. It runs on the CPU with Node.js, keeps the full resolution and never uploads anything.
+
+```bash
+cd mcp
+npm install && npm run build
+claude mcp add --scope user bg-remove -- node "<path-to-repo>/mcp/dist/index.js"
+```
+
+See [`mcp/README.md`](mcp/README.md) for the tool reference, Claude Desktop setup and how it maps to the web worker. The `mcp/` folder is a separate package and is not part of the web build or the Vercel deployment.
+
 ## Privacy
 
 Your images **never leave the browser tab**. The only network requests this app makes are:
