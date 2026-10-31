@@ -285,17 +285,18 @@ async function resizeMask(
   return data;
 }
 
-/** destination-in: keep the original colours, alpha = source alpha x mask. */
-function applyMask(rgba: Buffer, mask: Buffer): Buffer {
+/**
+ * destination-in: keep the original colours, alpha = source alpha x mask.
+ * Writes into `rgba` to avoid a second full-size copy (48 MB at 12 MP).
+ */
+function applyMaskInPlace(rgba: Buffer, mask: Buffer): void {
   const pixels = mask.length;
-  const out = Buffer.from(rgba);
   for (let i = 0; i < pixels; i++) {
     const j = i * 4 + 3;
-    const a = out[j] ?? 0;
+    const a = rgba[j] ?? 0;
     const m = mask[i] ?? 0;
-    out[j] = a === 255 ? m : Math.round((a * m) / 255);
+    rgba[j] = a === 255 ? m : Math.round((a * m) / 255);
   }
-  return out;
 }
 
 export interface Box {
@@ -357,7 +358,10 @@ export async function removeBackground(
   const outputs = (await model({ input: pixel_values })) as Record<string, Tensor>;
   const mask = tensorToMask(pickMaskTensor(outputs));
   const fullMask = await resizeMask(mask, width, height);
-  const rgba = applyMask(decoded.rgba, fullMask);
+  // Safe to overwrite: the decoded buffer is ours alone, and the model input
+  // was built from a separate copy (toRawImage) that is no longer needed.
+  const rgba = decoded.rgba;
+  applyMaskInPlace(rgba, fullMask);
 
   let pipeline = sharp(rgba, { raw: { width, height, channels: 4 } });
   let outWidth = width;
