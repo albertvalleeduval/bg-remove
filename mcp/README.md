@@ -57,7 +57,7 @@ On Windows, write the path with forward slashes or escaped backslashes (`C:\\pat
 | `input_path` | string | | Absolute path of one image. |
 | `input_paths` | string[] | | Absolute paths of several images (batch). Can be combined with `input_path`. |
 | `output_path` | string | | Absolute output file (`.png` or `.webp`). Single input only. |
-| `output_dir` | string | next to each input | Directory for outputs, named `<name>-nobg.<format>`. Created if missing. |
+| `output_dir` | string | next to each input | Directory for outputs, named `<name>-nobg.<format>`. Created if missing. When several inputs of one call share a base name (`a/x.jpg`, `b/x.jpg`), later ones get a numeric suffix (`x-nobg-2.png`) instead of overwriting each other. |
 | `format` | `png` \| `webp` | `png` | Output format. Inferred from `output_path` when given. WebP is encoded at quality 95 with lossless alpha, like the web app. |
 | `overwrite` | boolean | `false` | Replace existing output files. Without it, an existing output is reported as an error for that file. |
 | `trim` | boolean | `false` | Crop to the visible subject (alpha ≥ 5%) plus a margin of 1% of the subject's longer side (at least 2 px), clamped to the image. Handy for logos and assets. |

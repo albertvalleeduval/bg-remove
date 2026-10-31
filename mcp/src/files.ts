@@ -82,12 +82,17 @@ interface Planned {
   input: string;
   output: string;
   format: OutputFormat;
+  /** Output name derived from the input (no explicit output_path). */
+  derived: boolean;
 }
+
+type PlanOrError = Planned | { input: string; error: string };
 
 function plan(rawInput: string, req: BatchRequest): Planned {
   const input = normalizeAbsolutePath(rawInput, 'input path');
   let format: OutputFormat = req.format ?? 'png';
   let output: string;
+  let derived = false;
 
   if (req.outputPath !== undefined) {
     output = normalizeAbsolutePath(req.outputPath, 'output_path');
@@ -107,20 +112,51 @@ function plan(rawInput: string, req: BatchRequest): Planned {
       : path.dirname(input);
     const name = path.basename(input, path.extname(input));
     output = path.join(dir, `${name}-nobg.${format}`);
+    derived = true;
   }
 
   if (samePath(input, output)) {
     throw new Error('Output path would overwrite the input image');
   }
-  return { input, output, format };
+  return { input, output, format, derived };
 }
 
-async function processOne(rawInput: string, req: BatchRequest): Promise<FileResult> {
+function pathKey(p: string): string {
+  return process.platform === 'win32' ? p.toLowerCase() : p;
+}
+
+/**
+ * Plan every output before processing anything, so that two inputs with the
+ * same base name (a/x.jpg and b/x.jpg into one output_dir) never write to the
+ * same file: later ones get a numeric suffix, x-nobg-2.png, x-nobg-3.png, ...
+ */
+function planBatch(req: BatchRequest): PlanOrError[] {
+  const used = new Set<string>();
+  return req.inputs.map((rawInput) => {
+    let job: Planned;
+    try {
+      job = plan(rawInput, req);
+    } catch (err) {
+      return { input: rawInput, error: err instanceof Error ? err.message : String(err) };
+    }
+    if (job.derived && used.has(pathKey(job.output))) {
+      const ext = path.extname(job.output);
+      const stem = job.output.slice(0, -ext.length);
+      let n = 2;
+      while (used.has(pathKey(`${stem}-${n}${ext}`))) n++;
+      job.output = `${stem}-${n}${ext}`;
+    }
+    used.add(pathKey(job.output));
+    return job;
+  });
+}
+
+async function processOne(planned: PlanOrError, req: BatchRequest): Promise<FileResult> {
   const started = Date.now();
-  let inputLabel = rawInput;
+  const inputLabel = planned.input;
   try {
-    const job = plan(rawInput, req);
-    inputLabel = job.input;
+    if ('error' in planned) throw new Error(planned.error);
+    const job = planned;
 
     let source: Buffer;
     try {
@@ -176,8 +212,8 @@ export async function processBatch(req: BatchRequest): Promise<FileResult[]> {
     throw new Error('Pass either output_path or output_dir, not both');
   }
   const results: FileResult[] = [];
-  for (const input of req.inputs) {
-    results.push(await processOne(input, req));
+  for (const planned of planBatch(req)) {
+    results.push(await processOne(planned, req));
   }
   return results;
 }

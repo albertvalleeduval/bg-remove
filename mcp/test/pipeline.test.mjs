@@ -2,7 +2,7 @@
 // properties the web app guarantees: same dimensions, an alpha channel, a
 // transparent background and an opaque subject. Requires `npm run build`.
 import assert from 'node:assert/strict';
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { after, before, describe, test } from 'node:test';
 
@@ -162,6 +162,32 @@ describe('file handling', () => {
     assert.match(results[2].error, /absolute path/);
     const written = await readFile(results[3].output_path);
     assert.ok(written.length > 0);
+  });
+
+  test('same-named inputs in one output_dir get distinct outputs', async () => {
+    const a = path.join(tmp, 'dupes', 'a', 'x.jpg');
+    const b = path.join(tmp, 'dupes', 'b', 'x.jpg');
+    await mkdir(path.dirname(a), { recursive: true });
+    await mkdir(path.dirname(b), { recursive: true });
+    await copyFile(inputs.mug, a);
+    await copyFile(inputs.dog, b);
+    const outDir = path.join(tmp, 'dupes', 'out');
+
+    for (const overwrite of [true, false]) {
+      await rm(outDir, { recursive: true, force: true });
+      const results = await processBatch({ inputs: [a, b], outputDir: outDir, overwrite, trim: false });
+      assert.deepEqual(
+        results.map((r) => r.ok),
+        [true, true],
+      );
+      assert.equal(results[0].output_path, path.join(outDir, 'x-nobg.png'));
+      assert.equal(results[1].output_path, path.join(outDir, 'x-nobg-2.png'));
+      const sizes = await Promise.all(results.map((r) => sharp(r.output_path).metadata()));
+      assert.deepEqual(
+        sizes.map((m) => `${m.width}x${m.height}`),
+        ['640x853', '640x480'],
+      );
+    }
   });
 
   test('invalid output options are rejected', async () => {
